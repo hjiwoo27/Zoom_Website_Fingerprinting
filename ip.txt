@@ -1,0 +1,100 @@
+sudo apt update
+sudo apt upgrade -y
+
+sudo apt-get install hostapd -y    //라즈베리파이 apmode로 설정해줌
+sudo apt-get install dnsmasq -y    //DHCP or DNS 설정해줌
+
+//설정이 되지 않은 상태로 실행되지 않게 하기 위해 stop
+sudo systemctl stop hostapd
+sudo systemctl stop dnsmasq
+
+
+
+//dghcpcd 구성 파일 수정
+sudo vi /etc/dhcpcd.conf
+
+//파일에 이 내용 붙여넣기
+interface wlan0    //사용한 interace는 wlan0
+static ip_address=192.168.177.121/24    //고정 ip 주소/활성화할 시간
+nohook wpa_supplicant
+
+//변경한 내용으로 dghcpcd 재시작
+sudo service dhcpcd restart  
+
+
+
+//dnsmasq 파일 수정
+sudo vi /etc/dnsmasq.conf
+
+//파일의 가장 밑에 이 내용 붙여넣기
+interface=wlan0
+dhcp-range=192.168.177.122,192.168.177.140,255.255.255.0,24h //할당할 주소 범위 -> 우리 고정 ip 주소가 192.168.177.121이므로 192.168.177.122~140까지 할당
+
+
+
+//ap 구성 요소 설정
+sudo vi /etc/hostapd/hostapd.conf
+
+//파일에 이 내용 붙여넣기
+interface=wlan0    //사용할 interface 종류는 wlan0
+driver=nl80211
+ssid=AISec_rasp    //ap 이름
+hw_mode=g
+channel=7
+wmm_enabled=0
+macaddr_acl=0
+auth_algs=1
+ignore_broadcast_ssid=0    //ap 보이게->0, wifi 목록에서 숨기려면 1로 설
+wpa=2
+wpa_passphrase=13571357    //ap 비밀번호
+wpa_key_mgmt=WPA-PSK    //암호화 방식 
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+
+
+
+
+
+//hostapd 파일 수정 -> 방금 수정한 hostapd.conf 파일의 위치를 시스템에 할당해주기 위함
+sudo vi /etc/default/hostapd
+
+#DAEMON_CONF 를 DAEMON_CONF="/etc/hostapd/hostapd.conf" 로 바꾼다 (주석도 제거해야 함)
+
+
+
+
+
+reboot 
+
+
+
+
+
+//멈춰뒀던 hostapd와 dnsmasq 시작 
+//혹시라도 wifi 리스트에서 ap가 안보이면 이거 해주면 됨
+sudo systemctl unmask hostapd.service  //보통 hostapd를 바로 start 하려 하면 Failed to start hostapd.service: Unit hostapd.service is masked.에러가 생김 -> 이 명령어로 mask되어있는 hostapd를 풀어주세요 
+sudo systemctl start hostapd
+sudo systemctl start dnsmasq
+
+
+//패킷 포워딩 활성화 (라즈베리파이가 네트워크와 알렉사를 연결해 주는데, 들어온 패킷을 목적지 네트워크로 갈 수 있는 경로에 올려주는 것)
+sudo vi /etc/sysctl.conf
+
+#net.ipv4.ip_forward=1 에서 주석 제거해주세요
+
+
+
+//라즈베리파이가 연결된 인터넷을 ap에 연결한 기기도 같이 쓸 수 있게 함
+sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+sudo sh -c "iptables-save > /etc/iptables.ipv4.nat"
+
+
+
+//부팅 시 바로 실행 가능하게 설정 저장
+sudo vi /etc/rc.local
+
+//이 내용을 붙여넣기 해주세요
+iptables-restore < /etc/iptables.ipv4.nat
+sudo systemctl start hostapd
+
+
