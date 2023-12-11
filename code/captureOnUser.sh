@@ -9,7 +9,7 @@ clean_exit() {
 }
 
 # output pcap 파일이 저장될 directory 설정 
-output_path=""C:\Users\swu\Desktop\output""
+output_path="C:\Users\swu\Desktop\output"
 
 # 현재 시간을 가져와서 output file 이름으로 설정 
 current_time=$(date +'%Y-%m-%d_%H-%M-%S')
