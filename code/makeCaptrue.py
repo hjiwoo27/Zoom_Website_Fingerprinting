@@ -2,6 +2,7 @@
 
 import paramiko
 import requests
+import webbrowser
 
 # replace with your client ID
 client_id = "QX86YwYdT2amJYaqzM9rpA" 
@@ -66,21 +67,17 @@ def create_meeting(topic, duration, TIMEZONE):
         }
         print(content)
         
+        
         return response_data["join_url"]
 
 zoom_url=create_meeting(MEETING_TOPIC, MEETING_DURATION, TIMEZONE)
 
 
-
-
 # 라즈베리파이 IP, 사용자 이름, 비밀번호 설정
-pi1_ip = '192.168.76.61'
+pi1_ip = '192.168.0.47'
 pi1_username = 'aisec'
 pi1_password = 'aisec'
 
-pi2_ip = '192.168.76.62'
-pi2_username = 'aisec'
-pi2_password = 'aisec'
 
 # SSH 연결 함수
 def ssh_connect_execute(ip, username, password, command):
@@ -101,16 +98,57 @@ def ssh_connect_execute(ip, username, password, command):
     finally:
         client.close()
 
+def send_ssh_message(ip_address, username, password, message):
+    # SSH 클라이언트 생성
+    client = paramiko.SSHClient()
+
+    # 호스트 키를 확인하지 않음 (실제 운영 시에는 보안을 위해 필요한 조치)
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        # SSH 서버에 연결
+        client.connect(ip_address, username=username, password=password)
+
+        # SSH로 명령 전송
+        command = f'echo "{message}"'
+        stdin, stdout, stderr = client.exec_command(command)
+
+        # 실행 결과 출력
+        print(stdout.read().decode('utf-8'))
+
+    except paramiko.AuthenticationException as auth_error:
+        print(f"인증 에러: {auth_error}")
+    except paramiko.SSHException as ssh_error:
+        print(f"SSH 에러: {ssh_error}")
+    finally:
+        # SSH 연결 닫기
+        client.close()
+
+# 노트북 정보 입력 (IP 주소, 사용자 이름, 비밀번호)
+notebook_ip = '192.168.76.62'
+username = 'DESKTOP-BA9F2N8/swn'
+password = ''
 
 
 # user 2에서 코드 실행
-command_pi2 = "python openZoom.py zoom_url"  # user 2의 코드 경로
-ssh_connect_execute(pi2_ip, pi2_username, pi2_password, command_pi2)
+# 보낼 메시지
+message_to_send = f"python C:/Users/swu/Desktop/output/code/openZoom.py  {zoom_url}"
+
+# SSH 메시지 전송
+send_ssh_message(notebook_ip, username, password, message_to_send)
+
+def join_zoom_meeting(meeting_link):
+    webbrowser.open(meeting_link)
+
+received_zoom_link = zoom_url
+join_zoom_meeting(received_zoom_link)
 
 # 라즈베리파이 1에서 코드 실행
-command_pi1 = "python3 /path/to/your/code_pi1.py"  # 라즈베리파이 1의 코드 경로
+command_pi1 = "bash /home/aisec/Desktop/Zoom_fingerprinting--main/capture.sh"  # 라즈베리파이 1의 코드 경로
 ssh_connect_execute(pi1_ip, pi1_username, pi1_password, command_pi1)
 
-# user 2에서 코드 실행
-command_pi2 = "python captureOnUser.sh"  # user 2의 코드 경로
-ssh_connect_execute(pi2_ip, pi2_username, pi2_password, command_pi2)
+# 보낼 메시지
+message_to_send = "python C:/Users/swu/Desktop/output/code/captureOnUser.sh"
+
+# SSH 메시지 전송
+send_ssh_message(notebook_ip, username, password, message_to_send)
